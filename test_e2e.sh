@@ -9,8 +9,28 @@ docker compose down -v 2>/dev/null || true
 docker rm -f database certify certify-nginx inji-usecase 2>/dev/null || true
 docker compose up -d database certify certify-nginx inji-usecase
 
-echo "=== 2. Waiting for services to initialize (12s) ==="
-sleep 12
+echo "=== 2. Waiting for services to initialize ==="
+echo -n "Waiting for inji-usecase to be ready..."
+for i in {1..30}; do
+  UNAUTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8085/api/students || true)
+  if [ "$UNAUTH_CHECK" -eq 401 ]; then
+    echo " OK"
+    break
+  fi
+  echo -n "."
+  sleep 1
+done
+
+echo -n "Waiting for Certify service to be ready..."
+for i in {1..40}; do
+  CERTIFY_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8091/v1/certify/credential-issuer/.well-known/openid-credential-issuer || true)
+  if [ "$CERTIFY_CHECK" -eq 200 ]; then
+    echo " OK"
+    break
+  fi
+  echo -n "."
+  sleep 1
+done
 
 API_KEY="certify-admin-key-change-me"
 STUDENT_ID="STU-2022-001"
