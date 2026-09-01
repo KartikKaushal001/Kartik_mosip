@@ -30,7 +30,7 @@ fi
 echo -n "Waiting for Certify service to be ready..."
 CERTIFY_READY=false
 for i in {1..90}; do
-  CERTIFY_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8091/v1/certify/credential-issuer/.well-known/openid-credential-issuer || true)
+  CERTIFY_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8091/.well-known/openid-credential-issuer || true)
   if [ "$CERTIFY_CHECK" -eq 200 ]; then
     echo " OK"
     CERTIFY_READY=true
