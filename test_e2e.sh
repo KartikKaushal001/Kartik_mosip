@@ -7,6 +7,7 @@ cd "$DIR"
 echo "=== 1. Starting Stack Services ==="
 docker compose down -v 2>/dev/null || true
 docker rm -f database certify certify-nginx inji-usecase 2>/dev/null || true
+START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 docker compose up -d database certify certify-nginx inji-usecase
 
 echo "=== 2. Waiting for services to initialize ==="
@@ -30,7 +31,7 @@ fi
 echo -n "Waiting for Certify key manager to be ready..."
 CERTIFY_READY=false
 for i in {1..90}; do
-  if docker compose logs certify 2>&1 | grep -q "INJI Certify -- Started"; then
+  if docker compose logs --since "$START_TIME" certify 2>&1 | grep -q "INJI Certify -- Started"; then
     echo " OK"
     CERTIFY_READY=true
     break
