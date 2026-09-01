@@ -11,26 +11,38 @@ docker compose up -d database certify certify-nginx inji-usecase
 
 echo "=== 2. Waiting for services to initialize ==="
 echo -n "Waiting for inji-usecase to be ready..."
-for i in {1..30}; do
+INJI_READY=false
+for i in {1..60}; do
   UNAUTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8085/api/students || true)
   if [ "$UNAUTH_CHECK" -eq 401 ]; then
     echo " OK"
+    INJI_READY=true
     break
   fi
   echo -n "."
   sleep 1
 done
+if [ "$INJI_READY" = false ]; then
+  echo " FAILED: inji-usecase did not become ready within 60s"
+  exit 1
+fi
 
 echo -n "Waiting for Certify service to be ready..."
-for i in {1..40}; do
+CERTIFY_READY=false
+for i in {1..90}; do
   CERTIFY_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8091/v1/certify/credential-issuer/.well-known/openid-credential-issuer || true)
   if [ "$CERTIFY_CHECK" -eq 200 ]; then
     echo " OK"
+    CERTIFY_READY=true
     break
   fi
   echo -n "."
   sleep 1
 done
+if [ "$CERTIFY_READY" = false ]; then
+  echo " FAILED: Certify service did not become ready within 90s"
+  exit 1
+fi
 
 API_KEY="certify-admin-key-change-me"
 STUDENT_ID="STU-2022-001"
