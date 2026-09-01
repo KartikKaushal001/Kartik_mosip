@@ -16,10 +16,30 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.mosip.inji_usecase.dto.CredentialOfferTriggerRequest;
+import com.mosip.inji_usecase.dto.CredentialOfferTriggerResponse;
 import com.mosip.inji_usecase.dto.student.StudentDto;
 import com.mosip.inji_usecase.dto.student.StudentGraduationDto;
+import com.mosip.inji_usecase.service.CredentialOfferService;
 import com.mosip.inji_usecase.service.StudentGraduationService;
 import com.mosip.inji_usecase.service.StudentService;
 
@@ -36,6 +56,7 @@ public class StudentDataController {
 
     private final StudentService studentService;
     private final StudentGraduationService graduationService;
+    private final CredentialOfferService credentialOfferService;
 
     // ======================== STUDENT ENDPOINTS ========================
 
@@ -196,5 +217,41 @@ public class StudentDataController {
 
         // Return all if no filter specified
         return ResponseEntity.ok(graduationService.getByCertificateStatus("ISSUED"));
+    }
+
+    // ======================== CREDENTIAL ISSUANCE TRIGGER ========================
+
+    /**
+     * POST /api/students/{studentId}/request-credential
+     *
+     * Validates student graduation eligibility, then calls Inji Certify to generate
+     * a pre-authorized code. Returns the credential_offer_uri (encode as QR code in frontend).
+     *
+     * Required role: ADMIN or STUDENT
+     */
+    @PostMapping("/students/{studentId}/request-credential")
+    public ResponseEntity<?> requestCredential(
+            @PathVariable("studentId") String studentId,
+            @RequestBody(required = false) CredentialOfferTriggerRequest request) {
+        try {
+            if (request == null) {
+                request = new CredentialOfferTriggerRequest();
+            }
+            CredentialOfferTriggerResponse response =
+                    credentialOfferService.triggerCredentialOffer(studentId, request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            LOGGER.warn("Student not found for credential offer: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("status", "error", "message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            LOGGER.warn("Student not eligible for credential offer: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("status", "error", "message", e.getMessage()));
+        } catch (Exception e) {
+            LOGGER.error("Failed to trigger credential offer for student {}", studentId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("status", "error", "message", "Failed to generate credential offer"));
+        }
     }
 }
