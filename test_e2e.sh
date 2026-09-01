@@ -27,11 +27,10 @@ if [ "$INJI_READY" = false ]; then
   exit 1
 fi
 
-echo -n "Waiting for Certify service to be ready..."
+echo -n "Waiting for Certify key manager to be ready..."
 CERTIFY_READY=false
 for i in {1..90}; do
-  CERTIFY_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8091/.well-known/openid-credential-issuer || true)
-  if [ "$CERTIFY_CHECK" -eq 200 ]; then
+  if docker compose logs certify 2>&1 | grep -q "INJI Certify -- Started"; then
     echo " OK"
     CERTIFY_READY=true
     break
