@@ -28,7 +28,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "students")
+@Table(name = "students", schema = "certify")
 public class Student {
 
     @Id

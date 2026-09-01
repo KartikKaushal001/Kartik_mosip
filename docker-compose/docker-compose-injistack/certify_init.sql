@@ -345,3 +345,160 @@ CREATE INDEX IF NOT EXISTS idx_iar_session_expires_at ON certify.iar_session(exp
 CREATE INDEX IF NOT EXISTS idx_iar_session_authorization_code_used ON certify.iar_session(authorization_code, is_code_used) WHERE authorization_code IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_iar_session_scope ON certify.iar_session(scope);
 CREATE INDEX IF NOT EXISTS idx_iar_session_transaction_id ON certify.iar_session(transaction_id);
+
+-- ======================================================================
+-- Student Use-Case Tables (Issue #834)
+-- ======================================================================
+
+CREATE TABLE IF NOT EXISTS certify.students (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id          VARCHAR(50) NOT NULL,
+    full_name           VARCHAR(200) NOT NULL,
+    email               VARCHAR(255) NOT NULL,
+    phone_number        VARCHAR(20) NOT NULL,
+    date_of_birth       DATE NOT NULL,
+    address             TEXT NOT NULL,
+    course_program      VARCHAR(150) NOT NULL,
+    enrollment_date     DATE NOT NULL,
+    academic_year       VARCHAR(20) NOT NULL,
+    cgpa                NUMERIC(3,2),
+    guardian_name       VARCHAR(200) NOT NULL,
+    guardian_phone      VARCHAR(20) NOT NULL,
+    status              VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_students_student_id UNIQUE (student_id),
+    CONSTRAINT uq_students_email UNIQUE (email)
+);
+
+CREATE TABLE IF NOT EXISTS certify.student_graduation_details (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id              UUID NOT NULL,
+    registration_number     VARCHAR(100) NOT NULL,
+    degree_title            VARCHAR(200) NOT NULL,
+    graduation_month        SMALLINT NOT NULL CHECK (graduation_month BETWEEN 1 AND 12),
+    graduation_year         INTEGER NOT NULL,
+    classification          VARCHAR(100) NOT NULL,
+    certificate_status      VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    created_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_sgd_student FOREIGN KEY (student_id)
+        REFERENCES certify.students(id) ON DELETE CASCADE,
+    CONSTRAINT uq_sgd_registration_number UNIQUE (registration_number)
+);
+
+-- API Keys table for inji-usecase authentication
+CREATE TABLE IF NOT EXISTS certify.api_keys (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    key_hash     VARCHAR(64) NOT NULL,      -- SHA-256 hex of the raw key
+    name         VARCHAR(100) NOT NULL,     -- human-readable label
+    role         VARCHAR(50) NOT NULL DEFAULT 'ADMIN',
+    active       BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at   TIMESTAMP,                 -- NULL = never expires
+    last_used_at TIMESTAMP,
+    CONSTRAINT uq_api_keys_hash UNIQUE (key_hash)
+);
+
+-- Sample student data
+INSERT INTO certify.students
+    (id, student_id, full_name, email, phone_number, date_of_birth,
+     address, course_program, enrollment_date, academic_year, cgpa,
+     guardian_name, guardian_phone, status)
+VALUES
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567801','STU-2022-001','Aarav Sharma',
+     'aarav.sharma@university.edu','+91-9876543210','2001-03-15',
+     '123 MG Road, Bangalore, Karnataka 560001','B.Tech Computer Science',
+     '2022-08-01','2022-2026',8.75,'Rajesh Sharma','+91-9876543211','ACTIVE'),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567802','STU-2022-002','Priya Patel',
+     'priya.patel@university.edu','+91-9876543220','2001-07-22',
+     '456 Nehru Nagar, Mumbai, Maharashtra 400001','B.Tech Electronics',
+     '2022-08-01','2022-2026',9.10,'Amit Patel','+91-9876543221','ACTIVE'),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567803','STU-2021-003','Rahul Verma',
+     'rahul.verma@university.edu','+91-9876543230','2000-11-05',
+     '789 Gandhi Road, Delhi 110001','M.Tech Artificial Intelligence',
+     '2021-08-01','2021-2023',8.50,'Suresh Verma','+91-9876543231','GRADUATED'),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567804','STU-2023-004','Ananya Reddy',
+     'ananya.reddy@university.edu','+91-9876543240','2002-01-30',
+     '321 Tank Bund Road, Hyderabad, Telangana 500001','B.Sc Data Science',
+     '2023-08-01','2023-2026',7.80,'Krishna Reddy','+91-9876543241','ACTIVE'),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567805','STU-2020-005','Vikram Singh',
+     'vikram.singh@university.edu','+91-9876543250','1999-06-18',
+     '654 Rajpath, Jaipur, Rajasthan 302001','B.Tech Mechanical Engineering',
+     '2020-08-01','2020-2024',8.20,'Baldev Singh','+91-9876543251','GRADUATED')
+ON CONFLICT (student_id) DO NOTHING;
+
+INSERT INTO certify.student_graduation_details
+    (student_id, registration_number, degree_title,
+     graduation_month, graduation_year, classification, certificate_status)
+VALUES
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567803','REG-2023-MTech-001',
+     'Master of Technology in Artificial Intelligence',6,2023,
+     'First Class with Distinction','ISSUED'),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567805','REG-2024-BTech-001',
+     'Bachelor of Technology in Mechanical Engineering',5,2024,
+     'First Class','ISSUED'),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567801','REG-2026-BTech-002',
+     'Bachelor of Technology in Computer Science',6,2026,
+     'First Class with Distinction','PENDING'),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567802','REG-2026-BTech-003',
+     'Bachelor of Technology in Electronics',6,2026,
+     'First Class','PENDING')
+ON CONFLICT (registration_number) DO NOTHING;
+
+-- Seed default admin API key (raw value: "certify-admin-key-change-me")
+INSERT INTO certify.api_keys (key_hash, name, role, active)
+VALUES (
+    'c5dcfe9326b9b27bcf10a7fb3b4a67c71ba83cb134b0858e3b2a293ed613ecec',
+    'Default Admin Key',
+    'ADMIN',
+    TRUE
+) ON CONFLICT (key_hash) DO NOTHING;
+
+-- StudentGraduationCredential config
+INSERT INTO certify.credential_config (
+    credential_config_key_id, config_id, status,
+    vc_template,
+    context, credential_type, credential_format,
+    did_url, key_manager_app_id, key_manager_ref_id,
+    signature_algo, signature_crypto_suite,
+    display, display_order, scope,
+    cryptographic_binding_methods_supported,
+    credential_signing_alg_values_supported,
+    proof_types_supported, credential_subject,
+    plugin_configurations,
+    credential_status_purpose, cr_dtimes
+)
+VALUES (
+    'StudentGraduationCredential',
+    gen_random_uuid()::VARCHAR(255),
+    'active',
+    NULL,
+    'https://www.w3.org/2018/credentials/v1',
+    'StudentGraduationCredential,VerifiableCredential',
+    'ldp_vc',
+    'did:web:localhost:8091',
+    'CERTIFY_VC_SIGN_ED25519',
+    'ED25519_SIGN',
+    'EdDSA',
+    'Ed25519Signature2020',
+    '[{"name": "Student Graduation Credential", "locale": "en",
+       "background_color": "#1a3c6e", "text_color": "#FFFFFF"}]'::JSONB,
+    ARRAY['studentId','fullName','email','phoneNumber','dateOfBirth',
+          'courseProgram','enrollmentDate','academicYear','cgpa',
+          'registrationNumber','degreeTitle','graduationMonth',
+          'graduationYear','classification','certificateStatus'],
+    'student_graduation_vc_ldp',
+    ARRAY['did:jwk'],
+    ARRAY['Ed25519Signature2020'],
+    '{"jwt":{"proof_signing_alg_values_supported":["RS256","ES256"]}}'::JSONB,
+    '{"studentId":{"display":[{"name":"Student ID","locale":"en"}]},
+      "fullName":{"display":[{"name":"Full Name","locale":"en"}]},
+      "degreeTitle":{"display":[{"name":"Degree","locale":"en"}]},
+      "graduationYear":{"display":[{"name":"Year","locale":"en"}]},
+      "classification":{"display":[{"name":"Class","locale":"en"}]}
+     }'::JSONB,
+    NULL,
+    ARRAY['revocation'],
+    NOW()
+) ON CONFLICT (credential_config_key_id) DO NOTHING;
