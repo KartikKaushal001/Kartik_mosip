@@ -22,7 +22,7 @@ services:
       - 8090:8090
     environment:
       - container_user=mosip
-      - active_profile_env=default, csvdp-farmer
+      - active_profile_env=default, csvdp-farmer, postgres-student
       - SPRING_CONFIG_NAME=certify
       - SPRING_CONFIG_LOCATION=/home/mosip/config/
       - enable_certify_artifactory=false
@@ -31,6 +31,7 @@ services:
     volumes:
       - ./config/certify-default.properties:/home/mosip/config/certify-default.properties
       - ./config/certify-csvdp-farmer.properties:/home/mosip/config/certify-csvdp-farmer.properties
+      - ./config/certify-postgres-student.properties:/home/mosip/config/certify-postgres-student.properties
       - ./config/certify-mock-mdl.properties:/home/mosip/config/certify-mock-mdl.properties
       - ./data/CERTIFY_PKCS12:/home/mosip/CERTIFY_PKCS12
       # This can be disabled if one uses plugins included in inji-certify-with-plugins docker image.
@@ -133,6 +134,25 @@ services:
 #      - database
 #    networks:
 #      - network
+
+  inji-usecase:
+    build:
+      context: ../../inji-usecase
+      dockerfile: Dockerfile
+    container_name: inji-usecase
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/inji_certify?currentSchema=certify
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA=certify
+      - CERTIFY_PRE_AUTH_ENDPOINT=http://certify-nginx:80/v1/certify/pre-authorized-data
+    networks:
+      - network
+    depends_on:
+      - database
+      - certify
 
 networks:
   network:
