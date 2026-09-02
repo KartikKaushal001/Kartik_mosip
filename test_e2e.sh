@@ -31,7 +31,7 @@ fi
 echo -n "Waiting for Certify key manager to be ready..."
 CERTIFY_READY=false
 for i in {1..90}; do
-  if docker compose logs --since "$START_TIME" certify 2>&1 | grep -q "INJI Certify -- Started"; then
+  if docker compose logs --tail 20 certify 2>&1 | grep -q "INJI Certify -- Started"; then
     echo " OK"
     CERTIFY_READY=true
     break

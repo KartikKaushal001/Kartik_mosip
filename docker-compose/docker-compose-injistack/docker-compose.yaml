@@ -2,6 +2,8 @@ version: '3.8'
 
 services:
   database:
+    container_name: database
+    restart: unless-stopped
     image: 'postgres:15'
     environment:
       - POSTGRES_USER=postgres
@@ -16,6 +18,8 @@ services:
       - "5433:5432"
 
   certify:
+    container_name: certify
+    restart: unless-stopped
     image: injistack/inji-certify-with-plugins:0.14.0
     user: root
     ports:
@@ -45,6 +49,8 @@ services:
       - database
 
   certify-nginx:
+    container_name: certify-nginx
+    restart: unless-stopped
     image: nginx:stable
     ports:
       - 8091:80
@@ -140,6 +146,7 @@ services:
       context: ../../inji-usecase
       dockerfile: Dockerfile
     container_name: inji-usecase
+    restart: unless-stopped
     ports:
       - "8085:8085"
     environment:
