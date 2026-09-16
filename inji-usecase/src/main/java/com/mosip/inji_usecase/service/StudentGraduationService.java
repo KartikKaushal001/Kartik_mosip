@@ -45,6 +45,9 @@ public class StudentGraduationService {
             entity.setCertificateStatus("PENDING");
         }
 
+        student.setStatus("GRADUATED");
+        studentRepository.save(student);
+
         StudentGraduationDetail saved = graduationRepository.save(entity);
         LOGGER.info("Graduation details added with id: {}", saved.getId());
         return graduationMapper.toDto(saved);
