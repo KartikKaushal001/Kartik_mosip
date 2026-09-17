@@ -1,0 +1,5 @@
+{
+  "credential_configuration_id": "StudentGraduationCredential",
+  "claims": { "studentId": "STU-2442-23" },
+  "expires_in": 600
+}
